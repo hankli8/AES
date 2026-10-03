@@ -1,0 +1,11 @@
+.vs/
+x64/
+AES/
+.git/
+
+*.exe
+*.slnx
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
