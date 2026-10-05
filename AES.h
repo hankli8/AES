@@ -5,6 +5,16 @@
 #include<cstring>
 #include<cmath>
 
+#if defined(_WIN32)
+	#include<Windows.h>
+	#include<bcrypt.h>
+	#pragma comment(lib, "bcrypt.lib")
+#elif defined(__linux__)
+	#include<sys/random.h>
+#elif defined(__APPLE__)
+	#include<Security/SecRandom.h>
+#endif
+
 unsigned char s_box[256] = 
 	{ 0x63,0x7c,0x77,0x7b,0xf2,0x6b,0x6f,0xc5,0x30,0x01,0x67,0x2b,0xfe,0xd7,0xab,0x76,
 	0xca,0x82,0xc9,0x7d,0xfa,0x59,0x47,0xf0,0xad,0xd4,0xa2,0xaf,0x9c,0xa4,0x72,0xc0,
@@ -63,15 +73,19 @@ public:
 	}
 
 	void initialize_keys() {
-		std::random_device rd;
-		std::mt19937 gen(rd());
-		std::uniform_int_distribution<int> distribution(0, 255);
-		for (int i = 0;i < 4;i++) {
-			for (int j = 0;j < 4;j++) {
-				round_keys[j * 4 + i] = distribution(gen);
-				round_keys[16 + j * 4 + i] = distribution(gen);
-			}
+	#if defined(_WIN32)
+		if (BCryptGenRandom(NULL, round_keys, 32, BCRYPT_USE_SYSTEM_PREFERRED_RNG) != 0) {
+			throw std::runtime_error("os random number generating failed");
 		}
+	#elif defined(__linux__)
+		if (getrandom(round_keys, 32, 0) != 32) {
+			throw std::runtime_error("os random number generating failed");
+		}
+	#elif defined(__APPLE__)
+		if (SecRandomCopyBytes(kSecRandomDefault, 32, round_keys)!=0) {
+			throw std::runtime_error("os random number generating failed");
+		}
+	#endif
 		for (int i = 0;i < 13;i++) {
 			for (int j = 0;j < 4;j++) {
 				for (int k = 0;k < 4;k++) {
@@ -155,9 +169,11 @@ public:
 	void increment() {
 		nonce[11]++;
 		for (int i = 11;i >= 1;i--) {
-			if (nonce[i] == 255) {
-				nonce[i]++;
-				nonce[i - 1]++;
+			if (nonce[i] == 0) {
+				nonce[i-1]++;
+			}
+			else {
+				break;
 			}
 		}
 	}
@@ -278,9 +294,10 @@ public:
 
 	bool compare_tag(std::vector<unsigned char> tag1, std::vector<unsigned char> tag2) {
 		bool same = true;
-		std::vector<unsigned char> combined_tag(16);
 		for (int i = 0;i < 16;i++) {
-			same&=~(tag1[i] ^ tag2[i]);
+			if (~(tag1[i] ^ tag2[i]) != -1) {
+				same = false;
+			}
 		}
 		return same;
 	}
@@ -299,7 +316,13 @@ public:
 
 	std::string encrypt(std::string input, unsigned char* user_key) {
 		std::string encrypted_string = "";
-		initialize_keys();
+		try {
+			initialize_keys();
+		}
+		catch (const std::runtime_error& e) {
+			std::cerr << e.what() << '\n';
+			return e.what();
+		}
 		hash_encrypt();
 		increment();
 		unsigned long long needed_blocks = std::ceil((double)input.length() / 16.0f) + 1, counter = 1, input_length=input.length();
