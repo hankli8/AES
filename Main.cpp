@@ -4,13 +4,13 @@
 #include"AES.h"
 int main() {
 	unsigned char key[240];
-	std::string input, cipher, output;
-	std::getline(std::cin, input);
 	encryption_object e;
-	cipher=e.encrypt(input.c_str());
-	for (unsigned char i : cipher)
+	std::string input, encrypted_message, decrypted_message;
+	std::getline(std::cin, input);
+	encrypted_message = e.encrypt(input, key);
+	for (unsigned char i : encrypted_message) {
 		std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)i;
-	e.get_key(key);
-	output = e.decrypt(cipher, key);
-	std::cout <<std::endl<< output;
+	}
+	decrypted_message = e.decrypt(encrypted_message, key);
+	std::cout << '\n' << decrypted_message;
 }

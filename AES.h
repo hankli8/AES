@@ -3,6 +3,7 @@
 #include<random>
 #include<vector>
 #include<cstring>
+#include<cmath>
 
 unsigned char s_box[256] = 
 	{ 0x63,0x7c,0x77,0x7b,0xf2,0x6b,0x6f,0xc5,0x30,0x01,0x67,0x2b,0xfe,0xd7,0xab,0x76,
@@ -22,31 +23,14 @@ unsigned char s_box[256] =
 	0xe1,0xf8,0x98,0x11,0x69,0xd9,0x8e,0x94,0x9b,0x1e,0x87,0xe9,0xce,0x55,0x28,0xdf,
 	0x8c,0xa1,0x89,0x0d,0xbf,0xe6,0x42,0x68,0x41,0x99,0x2d,0x0f,0xb0,0x54,0xbb,0x16 };
 
-unsigned char inv_s_box[256] = {
-	0x52,0x09,0x6a,0xd5,0x30,0x36,0xa5,0x38,0xbf,0x40,0xa3,0x9e,0x81,0xf3,0xd7,0xfb,
-	0x7c,0xe3,0x39,0x82,0x9b,0x2f,0xff,0x87,0x34,0x8e,0x43,0x44,0xc4,0xde,0xe9,0xcb,
-	0x54,0x7b,0x94,0x32,0xa6,0xc2,0x23,0x3d,0xee,0x4c,0x95,0x0b,0x42,0xfa,0xc3,0x4e,
-	0x08,0x2e,0xa1,0x66,0x28,0xd9,0x24,0xb2,0x76,0x5b,0xa2,0x49,0x6d,0x8b,0xd1,0x25,
-	0x72,0xf8,0xf6,0x64,0x86,0x68,0x98,0x16,0xd4,0xa4,0x5c,0xcc,0x5d,0x65,0xb6,0x92,
-	0x6c,0x70,0x48,0x50,0xfd,0xed,0xb9,0xda,0x5e,0x15,0x46,0x57,0xa7,0x8d,0x9d,0x84,
-	0x90,0xd8,0xab,0x00,0x8c,0xbc,0xd3,0x0a,0xf7,0xe4,0x58,0x05,0xb8,0xb3,0x45,0x06,
-	0xd0,0x2c,0x1e,0x8f,0xca,0x3f,0x0f,0x02,0xc1,0xaf,0xbd,0x03,0x01,0x13,0x8a,0x6b,
-	0x3a,0x91,0x11,0x41,0x4f,0x67,0xdc,0xea,0x97,0xf2,0xcf,0xce,0xf0,0xb4,0xe6,0x73,
-	0x96,0xac,0x74,0x22,0xe7,0xad,0x35,0x85,0xe2,0xf9,0x37,0xe8,0x1c,0x75,0xdf,0x6e,
-	0x47,0xf1,0x1a,0x71,0x1d,0x29,0xc5,0x89,0x6f,0xb7,0x62,0x0e,0xaa,0x18,0xbe,0x1b,
-	0xfc,0x56,0x3e,0x4b,0xc6,0xd2,0x79,0x20,0x9a,0xdb,0xc0,0xfe,0x78,0xcd,0x5a,0xf4,
-	0x1f,0xdd,0xa8,0x33,0x88,0x07,0xc7,0x31,0xb1,0x12,0x10,0x59,0x27,0x80,0xec,0x5f,
-	0x60,0x51,0x7f,0xa9,0x19,0xb5,0x4a,0x0d,0x2d,0xe5,0x7a,0x9f,0x93,0xc9,0x9c,0xef,
-	0xa0,0xe0,0x3b,0x4d,0xae,0x2a,0xf5,0xb0,0xc8,0xeb,0xbb,0x3c,0x83,0x53,0x99,0x61,
-	0x17,0x2b,0x04,0x7e,0xba,0x77,0xd6,0x26,0xe1,0x69,0x14,0x63,0x55,0x21,0x0c,0x7d };
-
 unsigned char Rcon_values[11] = { 0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36 };
 
 class encryption_object {
 private:
 	unsigned char round_keys[240] = { 0 };
 public:
-	const unsigned char* user_input;
+	unsigned char hash[16] = { 0 };
+	unsigned char nonce[12] = { 0 };
 	unsigned char current_matrix[4][4];
 
 	int rotword(int index) {
@@ -56,10 +40,6 @@ public:
 	int subword(unsigned char value) {
 		unsigned char a = value >> 4, b = value & 0x0f;
 		return s_box[a * 16 + b];
-	}
-
-	void get_key(unsigned char* key_storage) {
-		std::memcpy(key_storage, round_keys, 240);
 	}
 
 	int get_key_value(int i, int j, int k) {
@@ -112,33 +92,12 @@ public:
 		}
 	}
 
-	void inv_subbytes() {
-		for (int i = 0;i < 4;i++) {
-			for (int j = 0;j < 4;j++) {
-				int row, col;
-				row = current_matrix[j][i] >> 4;
-				col = current_matrix[j][i] & 0x0f;
-				current_matrix[j][i] = inv_s_box[row * 16 + col];
-			}
-		}
-	}
-
 	void shift_rows() {
 		unsigned char copy[4][4];
 		std::memcpy(copy, current_matrix, 16);
 		for (int i = 1;i < 4;i++) {
 			for (int j = 0;j < 4;j++) {
 				current_matrix[i][j] = copy[i][(j + i) % 4];
-			}
-		}
-	}
-
-	void inv_shift_rows() {
-		unsigned char copy[4][4];
-		std::memcpy(copy, current_matrix, 16);
-		for (int i = 1;i < 4;i++) {
-			for (int j = 0;j < 4;j++) {
-				current_matrix[i][j] = copy[i][(j - i+20) % 4];
 			}
 		}
 	}
@@ -184,18 +143,6 @@ public:
 			*original_column[0] = new_column[0], * original_column[1] = new_column[1], * original_column[2] = new_column[2], * original_column[3] = new_column[3];
 		}
 	}
-
-	void inv_mix_columns() {
-		for (int i = 0;i < 4;i++) {
-			unsigned char* original_column[4] = { &current_matrix[0][i], &current_matrix[1][i], &current_matrix[2][i], &current_matrix[3][i] };
-			unsigned char new_column[4];
-			new_column[0] = x(14, *original_column[0]) ^ x(11, *original_column[1]) ^ x(13, *original_column[2]) ^ x(9, *original_column[3]);
-			new_column[1] = x(9, *original_column[0]) ^ x(14, *original_column[1]) ^ x(11, *original_column[2]) ^ x(13, *original_column[3]);
-			new_column[2] = x(13, *original_column[0]) ^ x(9, *original_column[1]) ^ x(14, *original_column[2]) ^ x(11, *original_column[3]);
-			new_column[3] = x(11, *original_column[0]) ^ x(13, *original_column[1]) ^ x(9, *original_column[2]) ^ x(14, *original_column[3]);
-			*original_column[0] = new_column[0], * original_column[1] = new_column[1], * original_column[2] = new_column[2], * original_column[3] = new_column[3];
-		}
-	}
 	
 	void add_round_key(int round_cnt) {
 		for (int i = 0;i < 4;i++) {
@@ -205,27 +152,40 @@ public:
 		}
 	}
 
-	void inv_add_round_key(int round_cnt, unsigned char* user_round_keys) {
-		for (int i = 0;i < 4;i++) {
-			for (int j = 0;j < 4;j++) {
-				current_matrix[j][i] = current_matrix[j][i] ^ *(user_round_keys + round_cnt * 16 + i * 4 + j);
+	void increment() {
+		nonce[11]++;
+		for (int i = 11;i >= 1;i--) {
+			if (nonce[i] == 255) {
+				nonce[i]++;
+				nonce[i - 1]++;
 			}
 		}
 	}
 
-	std::string encrypt(std::string input) {
-		std::string encrypted_string="";
-		int needed_matrix_cnt = 0, pointer=0, input_length=input.length();
-		needed_matrix_cnt = input_length / 16 + 1;
-		int pad = 16 - input_length % 16;
-		initialize_keys();
-		for (int i = 0;i < needed_matrix_cnt;i++) {
-			pointer = 0;
-			for (;pointer < 16;pointer++){
-				if (i * 16 + pointer < input_length)
-					current_matrix[pointer % 4][pointer / 4] = input[i * 16 + pointer];
-				else
-					current_matrix[pointer % 4][pointer / 4] = pad;
+	void hash_encrypt() {
+		std::memset(hash, 0, 16);
+		for (int i = 0;i < 16;i++) {
+			current_matrix[i % 4][i / 4] = hash[i];
+		}
+		add_round_key(0);
+		for (int i = 1;i < 14;i++) {
+			subbytes();
+			shift_rows();
+			mix_columns();
+			add_round_key(i);
+		}
+		subbytes();
+		shift_rows();
+		add_round_key(14);
+		for (int i = 0;i < 16;i++) {
+			hash[i] = current_matrix[i % 4][i / 4];
+		}
+	}
+
+	void counter_blocks_encrypt(std::vector<std::vector<unsigned char>>& counter_blocks) {
+		for (int i = 0;i < counter_blocks.size();i++) {
+			for (int j = 0;j < 16;j++) {
+				current_matrix[j % 4][j / 4] = counter_blocks[i][j];
 			}
 			add_round_key(0);
 			for (int j = 1;j < 14;j++) {
@@ -237,41 +197,182 @@ public:
 			subbytes();
 			shift_rows();
 			add_round_key(14);
-			for (int j = 0;j < 4;j++) {
-				for (int k = 0;k < 4;k++) {
-					encrypted_string.push_back(current_matrix[k][j]);
-				}
+			for (int j = 0;j < 16;j++) {
+				counter_blocks[i][j] = current_matrix[j % 4][j / 4];
 			}
 		}
+	}
+
+	void xor_copy(std::vector<unsigned char>& result, unsigned char* copy) {
+		for (int i = 0;i < result.size();i++) {
+			result[i] ^= *(copy + i);
+		}
+	}
+
+	void shift_copy(unsigned char* copy) {
+		bool true_bit_fell= false, carry_over=false, next_carry_over=false;
+		if (*(copy + 15) & 0x01) {
+			true_bit_fell = true;
+		}
+		if (*copy & 0x01) {
+			next_carry_over = true;
+		}
+		*copy = *copy >> 1;
+		for (int i = 1;i < 16;i++) {
+			carry_over = next_carry_over;
+			next_carry_over = false;
+			if (*(copy + i) & 0x01) {
+				next_carry_over = true;
+			}
+			*(copy + i)=*(copy+i) >> 1;
+			if (carry_over) {
+				*(copy + i) =*(copy+i)|0x80;
+				carry_over = false;
+			}
+		}
+		if (true_bit_fell) {
+			*(copy) ^= 0xe1;
+		}
+	}
+
+	std::vector<unsigned char> ghash(std::vector<std::vector<unsigned char>> &counter_blocks, unsigned long long input_length) {
+		std::vector<unsigned char> y(16);
+		for (int i = 1;i < counter_blocks.size();i++) {
+			for (int j = 0;j < 16;j++) {
+				y[j] ^= counter_blocks[i][j]; 
+			}
+			unsigned char copy[16];
+			std::vector<unsigned char> result(16);
+			std::memcpy(copy, hash, 16);
+			for (int j = 0;j < 128;j++) {
+				int shift_pos = 7 - j % 8;
+				if ((y[j / 8] >> shift_pos) & 0x01) {
+					xor_copy(result, copy);
+				}
+				shift_copy(copy);
+			}
+			y = result;
+		}
+		std::vector<unsigned char> length_block(16);
+		for (int i = 0;i < 8;i++) {
+			length_block[i] = 0;
+		}
+		length_block[8] = input_length >> 56, length_block[9] = input_length >> 48 & 0xff, length_block[10] = input_length >> 40 & 0xff, length_block[11] = input_length >> 32 & 0xff,
+		length_block[12] = input_length >> 24 & 0xff, length_block[13] = input_length >> 16 & 0xff, length_block[14] = input_length >> 8 & 0xff, length_block[15] = input_length & 0xff;
+		unsigned char copy[16];
+		std::vector<unsigned char> result(16);
+		std::memcpy(copy, hash, 16);
+		for (int j = 0;j < 16;j++) {
+			y[j] ^= length_block[j];
+		}
+		for (int j = 0;j < 128;j++) {
+			int shift_pos = 7 - j % 8;
+			if ((y[j / 8] >> shift_pos) & 0x01) {
+				xor_copy(result, copy);
+			}
+			shift_copy(copy);
+		}
+		y = result;
+		return y;
+	}
+
+	bool compare_tag(std::vector<unsigned char> tag1, std::vector<unsigned char> tag2) {
+		bool same = true;
+		std::vector<unsigned char> combined_tag(16);
+		for (int i = 0;i < 16;i++) {
+			same&=~(tag1[i] ^ tag2[i]);
+		}
+		return same;
+	}
+
+	std::vector<unsigned char> get_counter_block(unsigned char* nonce, unsigned long long counter) {
+		std::vector<unsigned char> output;
+		for (int i = 0;i < 12;i++) {
+			output.push_back(*(nonce + i));
+		}
+		output.push_back(counter >> 24);
+		output.push_back(counter >> 16&0xff);
+		output.push_back(counter >> 8&0xff);
+		output.push_back(counter & 0xff);
+		return output;
+	}
+
+	std::string encrypt(std::string input, unsigned char* user_key) {
+		std::string encrypted_string = "";
+		initialize_keys();
+		hash_encrypt();
+		increment();
+		unsigned long long needed_blocks = std::ceil((double)input.length() / 16.0f) + 1, counter = 1, input_length=input.length();
+		std::vector<std::vector<unsigned char>> counter_blocks(needed_blocks, std::vector<unsigned char>(16));
+		std::vector<unsigned char> ghash_result(16);
+		std::vector<unsigned char> tag(16);
+		counter_blocks[0]=get_counter_block(nonce, counter);
+		counter++;
+		for (int i = 1;i < needed_blocks;i++) {
+			counter_blocks[i] = get_counter_block(nonce, counter);
+			counter++;
+		}
+		counter_blocks_encrypt(counter_blocks);
+		for (int i = 0;i < input_length;i++) {
+			counter_blocks[i/16+1][i%16] ^= input[i];
+		}
+		for (int i = input_length;i < (counter_blocks.size() - 1) * 16;i++) {
+			counter_blocks[counter_blocks.size() - 1][i%16] = 0;
+		}
+		ghash_result = ghash(counter_blocks, input_length*8);
+		for (int i = 0;i < 16;i++) {
+			tag[i] = ghash_result[i] ^ counter_blocks[0][i];
+		}
+		for (int i = 0;i < 12;i++) {
+			encrypted_string.push_back(nonce[i]);
+		}
+		for (int i = 16;i < input_length+16;i++) {
+			encrypted_string.push_back(counter_blocks[i / 16][i % 16]);
+		}
+		for (int i = 0;i < 16;i++) {
+			encrypted_string.push_back(tag[i]);
+		}
+		std::memcpy(user_key, round_keys, 240);
 		return encrypted_string;
 	}
 
-	std::string decrypt(std::string cipher, unsigned char* given_round_keys) {
-		std::string decrypted_string = "";
-		int needed_matrix_cnt, cipher_length=cipher.length();
-		needed_matrix_cnt = cipher_length / 16;
-		for (int i = 0;i < needed_matrix_cnt;i++) {
-			for (int j = 0;j < 16;j++) {
-				current_matrix[j % 4][j / 4] = cipher[i * 16 + j];
-			}
-			inv_add_round_key(14, given_round_keys);
-			for (int j = 13;j>=1;j--) {
-				inv_shift_rows();
-				inv_subbytes();
-				inv_add_round_key(j, given_round_keys);
-				inv_mix_columns();
-			}
-			inv_shift_rows();
-			inv_subbytes();
-			inv_add_round_key(0, given_round_keys);
-			for (int j = 0;j < 4;j++) {
-				for (int k = 0;k < 4;k++) {
-					decrypted_string.push_back(current_matrix[k][j]);
-				}
-			}
+	std::string decrypt(std::string encrypted_string, unsigned char* key) {
+		std::string decrypted_message = "";
+		std::memcpy(round_keys, key, 240);
+		unsigned long long cipher_text_length = encrypted_string.length() - 28;
+		std::vector<unsigned char> tag(16);
+		std::vector<unsigned char> calculated_tag(16);
+		for (int i = 0;i < 12;i++) {
+			nonce[i] = encrypted_string[i];
 		}
-		int size_of_pad = decrypted_string[decrypted_string.length() - 1];
-		decrypted_string.erase(decrypted_string.length() - size_of_pad);
-		return decrypted_string;
+		for (int i = 12 + cipher_text_length;i < encrypted_string.length();i++) {
+			tag[i - 12 - cipher_text_length] = encrypted_string[i];
+		}
+		hash_encrypt();
+		unsigned long long needed_blocks = std::ceil((double)cipher_text_length / 16.0f) + 1, counter = 1;
+		std::vector<std::vector<unsigned char>> counter_blocks(needed_blocks, std::vector<unsigned char>(16));
+		std::vector<std::vector<unsigned char>> cipher_blocks(needed_blocks, std::vector<unsigned char>(16));
+		std::vector<unsigned char> ghash_result(16);
+		counter_blocks[0] = get_counter_block(nonce, counter);
+		counter++;
+		for (int i = 1;i < needed_blocks;i++) {
+			counter_blocks[i] = get_counter_block(nonce, counter);
+			counter++;
+		}
+		counter_blocks_encrypt(counter_blocks);
+		for (int i = 0;i < cipher_text_length;i++) {
+			cipher_blocks[i / 16 + 1][i % 16] = encrypted_string[12 + i];
+		}
+		ghash_result = ghash(cipher_blocks, cipher_text_length * 8);
+		for (int i = 0;i < 16;i++) {
+			calculated_tag[i] = ghash_result[i] ^ counter_blocks[0][i]; //might need to change to cipher_block[0][i]
+		}
+		if (!compare_tag(tag, calculated_tag)) {
+			return "tag wrong";
+		}
+		for (int i = 0;i < cipher_text_length;i++) {
+			decrypted_message.push_back(encrypted_string[12 + i] ^ counter_blocks[i / 16 + 1][i % 16]);
+		}
+		return decrypted_message;
 	}
 };
